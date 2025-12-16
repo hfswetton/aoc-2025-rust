@@ -14,6 +14,10 @@ pub mod coord_grid {
             Self { _grid: [[T::default(); GRID_WIDTH]; GRID_HEIGHT] }
         }
 
+        pub fn shape(&self) -> (usize, usize) {
+            (GRID_HEIGHT, GRID_WIDTH)
+        }
+
         pub fn set_all(&mut self, v: T) {
             for i in 0..GRID_HEIGHT {
                 for j in 0..GRID_WIDTH {
@@ -62,6 +66,10 @@ pub mod coord_grid {
         pub fn iter_coords(&self) -> impl Iterator<Item=(usize, usize)> {
             (0..GRID_HEIGHT).flat_map(|i| (0..GRID_WIDTH).map(move |j| (i.clone(), j)))
         }
+
+        pub fn iter_values_with_coords(&self) -> impl Iterator<Item=((usize, usize), T)> {
+            (0..GRID_HEIGHT).flat_map(move |i| (0..GRID_WIDTH).map(move |j| ((i.clone(), j), self._grid[i][j])))
+        }
         
         pub fn move_coords(&self, coords: (usize, usize), direction: Direction) -> Result<(usize, usize), ()> {
             match direction {
@@ -90,6 +98,51 @@ pub mod coord_grid {
             }
         }
 
+        /// Return a clone of `self`, rotated 90° clockwise `n_rot` times.
+         pub fn rotated(&self, n_rot: usize) -> Self {
+            match n_rot % 4 {
+                0 => self.clone(),
+                1 => self.rotated_90(),
+                2 => self.rotated_180(),
+                3 => self.rotated_270(),
+                _ => unreachable!(),
+            }
+        }
+
+        /// Return a clone of `self`, rotated 90° clockwise.
+        pub fn rotated_90(&self) -> Self {
+            if ! GRID_WIDTH == GRID_HEIGHT { panic!("cannot rotate a non-square grid by 90°") }
+            let mut new_present = Self::create();
+            self.iter_values_with_coords().for_each(|((i, j), v)| {
+                let i_new = j;
+                let j_new = GRID_WIDTH - i - 1;
+                new_present.set((i_new, j_new), v).unwrap();
+            });
+            new_present
+        }
+
+        /// Return a clone of `self`, rotated 180° clockwise.
+        pub fn rotated_180(&self) -> Self {
+            let mut new_present = Grid::create();
+            self.iter_values_with_coords().for_each(|((i, j), v)| {
+                let i_new = GRID_HEIGHT - i - 1;
+                let j_new = GRID_WIDTH - j - 1;
+                new_present.set((i_new, j_new), v).unwrap();
+            });
+            new_present
+        }
+
+        /// Return a clone of `self`, rotated 270° clockwise.
+        pub fn rotated_270(&self) -> Self {
+            if ! GRID_WIDTH == GRID_HEIGHT { panic!("cannot rotate a non-square grid by 270°") }
+            let mut new_present = Grid::create();
+            self.iter_values_with_coords().for_each(|((i, j), v)| {
+                let i_new = GRID_HEIGHT - j - 1;
+                let j_new = i;
+                new_present.set((i_new, j_new), v).unwrap();
+            });
+            new_present
+        }
         pub fn position(&self, needle: T) -> Option<(usize, usize)> {
             for i in 0..GRID_HEIGHT {
                 for j in 0..GRID_WIDTH {
