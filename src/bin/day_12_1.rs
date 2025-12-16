@@ -41,6 +41,7 @@ impl Tree {
         Self { shape: (size_i, size_j), grid, presents: [0; N_PRESENT_TYPES] }
     }
 
+    #[allow(dead_code)]
     fn print(&self) {
         let sep_line: String = ['-'; MAX_TREE_SIZE + 2].into_iter().collect();
         println!("{sep_line}");
@@ -54,16 +55,20 @@ impl Tree {
     /// Return a clone of `self` with the specified `Present`
     /// with the top-left corner at `coords` and rotated `n_rot` times,
     /// if the required space is free.
-    fn with_present(&self, coords: (usize, usize), n_rot: usize, present: &Present) -> Result<Self, ()> {
+    fn with_present(&self, coords: (usize, usize), n_rot: usize, flipped: bool, present: &Present) -> Result<Self, ()> {
         let (i0, j0) = coords;
         let mut new_grid = self.grid.clone();
         if present.iter_values_with_coords().all(|((i, j), v)| {
             if v {
-                let (i_new, j_new) = match n_rot % 4 {
-                    0 => (i0 + i, j0 + j),
-                    1 => (i0 + j, j0 + PRESENT_SIZE - i - 1),
-                    2 => (i0 + PRESENT_SIZE - i - 1, j0 + PRESENT_SIZE - j - 1),
-                    3 => (i0 + PRESENT_SIZE - j - 1, j0 + i),
+                let (i_new, j_new) = match (n_rot % 4, flipped) {
+                    (0, false) => (i0 + i, j0 + j),
+                    (1, false) => (i0 + j, j0 + PRESENT_SIZE - i - 1),
+                    (2, false) => (i0 + PRESENT_SIZE - i - 1, j0 + PRESENT_SIZE - j - 1),
+                    (3, false) => (i0 + PRESENT_SIZE - j - 1, j0 + i),
+                    (0, true) => (i0 + PRESENT_SIZE - i - 1, j0 + j),
+                    (1, true) => (i0 + PRESENT_SIZE - j - 1, j0 + PRESENT_SIZE - i - 1),
+                    (2, true) => (i0 + i, j0 + PRESENT_SIZE - j - 1),
+                    (3, true) => (i0 + j, j0 + i),
                     _ => unreachable!(),
                 };
                 match new_grid.get((i_new, j_new)) {
@@ -104,8 +109,8 @@ impl Tree {
         self.presents.iter().enumerate().for_each(|(i, n)| {
             (0..*n).for_each(|_| presents.push(present_types[i].clone()))
         });
-        println!("Assigning {} presents to a tree of size {}x{}", presents.len(), self.shape.0, self.shape.1);
-        self.print();
+        println!("Assigning {} presents to a tree of size {}x{}...", presents.len(), self.shape.0, self.shape.1);
+        //self.print();
         let free_spaces: usize = self.grid.iter().map(|v| if !v { 1 } else { 0 }).sum();
         let required_spaces: usize = presents.iter().map(|present| present.iter().map(|v| if *v { 1 } else { 0 }).sum::<usize>()).sum();
         if free_spaces < required_spaces {
@@ -121,16 +126,18 @@ impl Tree {
         if present_idx >= presents.len() {
             // End recursion
             println!("Assigned presents successfully:");
-            self.print();
+            //self.print();
             return true
         }
 
         self.iter_free_coords(2).any(|coords| {
             (0..=3).any(|n_rot| {
-                match self.with_present(coords, n_rot, &(presents[present_idx])) {
-                    Ok(new_tree) => new_tree.is_valid_inner(presents, present_idx + 1),
-                    Err(_) => false,
-                }
+                [true, false].iter().any(|flipped| {
+                    match self.with_present(coords, n_rot, *flipped, &(presents[present_idx])) {
+                        Ok(new_tree) => new_tree.is_valid_inner(presents, present_idx + 1),
+                        Err(_) => false,
+                    }
+                })
             })
         })
     }
